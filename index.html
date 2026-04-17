@@ -3,43 +3,33 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>Capture Creature 3D</title>
+  <title>Capture Creature</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { width: 100%; height: 100%; overflow: hidden; background: #87ceeb; font-family: system-ui, sans-serif; }
-    #game { width: 100%; height: 100%; display: block; }
-    #hud {
-      position: fixed; top: 0; left: 0; right: 0;
-      padding: 14px 18px;
-      color: #fff;
-      text-shadow: 0 2px 4px rgba(0,0,0,0.5);
-      pointer-events: none;
-      display: flex; justify-content: space-between; align-items: center;
-      font-weight: 600;
+    body {
+      background: #111;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      overflow: hidden;
     }
-    #title { font-size: 20px; letter-spacing: 1px; }
-    #hint { font-size: 13px; opacity: 0.9; }
-    #error {
-      display: none;
-      position: fixed; top: 0; left: 0; right: 0;
-      padding: 14px; background: #c0392b; color: #fff;
-      font-family: monospace; font-size: 13px; z-index: 9999;
-    }
+    canvas { image-rendering: pixelated; }
   </style>
 </head>
 <body>
-  <canvas id="game"></canvas>
-  <div id="hud">
-    <div id="title">CAPTURE CREATURE 3D</div>
-    <div id="hint">WASD to move &middot; drag to look</div>
-  </div>
-  <div id="error"></div>
+  <div id="error-display" style="color:red;font-size:16px;padding:20px;display:none;position:fixed;top:0;left:0;z-index:9999;background:#222;max-width:100%;word-wrap:break-word;"></div>
   <script>
-    window.onerror = function(msg, src, line, col) {
-      var el = document.getElementById('error');
+    window.onerror = function(msg, src, line, col, err) {
+      var el = document.getElementById('error-display');
       el.style.display = 'block';
-      el.textContent = 'ERROR: ' + msg + ' (' + src + ':' + line + ':' + col + ')';
+      el.textContent = 'ERROR: ' + msg + ' at ' + src + ':' + line + ':' + col;
     };
+    window.addEventListener('unhandledrejection', function(e) {
+      var el = document.getElementById('error-display');
+      el.style.display = 'block';
+      el.textContent = 'PROMISE ERROR: ' + (e.reason ? e.reason.message || e.reason : 'unknown');
+    });
   </script>
   <script type="module" src="/src/main.js"></script>
 </body>

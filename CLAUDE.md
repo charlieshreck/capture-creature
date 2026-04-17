@@ -1,36 +1,55 @@
-# Capture Creature 3D - Browser Game
+# Capture Creature - Browser Game
 
 ## Project Overview
-A browser-based 3D creature adventure built with Three.js. Currently a minimal foundation: a walkable 3D world with a Roblox-style blocky character, ready to grow into the full creature-capture game.
+A browser-based creature capture game built with Phaser.js. Players explore a procedural world, encounter wild creatures in tall grass, battle them turn-based style, and capture them with orbs.
 
 ## Tech Stack
-- 3D Engine: Three.js r171 (WebGL, browser-based)
+- Game Engine: Phaser 3 (2D, browser-based) for the main game
+- 3D Engine: Three.js r171 for the Win A Brainrot hub only
 - Build Tool: Vite 6
-- Server: Express (auth + static)
+- Server: Express (serves built static files, account auth)
 - Runtime: Node.js 22 LTS
-- No external model assets - all geometry built from primitives (boxes, cylinders, cones)
+- No external assets - all textures generated procedurally in Boot.js, and
+  3D figures built from primitives in brainrot3d/scene.js
 
 ## Project Structure
-- index.html - Entry point, fullscreen canvas, HUD overlay
-- src/main.js - Three.js bootstrap, render loop
-- src/world.js - Scene, lighting, ground, trees, clouds
-- src/player.js - Roblox-style blocky character with walk animation
-- src/controls.js - WASD movement, third-person orbit camera, touch support
-- server/index.js - Express server with account auth (/api/register, /api/login, /api/save)
-- server/accounts.json - User account data (hashed passwords, game state)
+- index.html - Entry point
+- src/main.js - Phaser game config, scene registration
+- src/scenes/Boot.js - Asset loading, procedural texture generation
+- src/scenes/World.js - Map exploration, movement, encounters
+- src/scenes/Battle.js - Turn-based battle system
+- src/scenes/Inventory.js - Creature collection viewer
+- src/scenes/HUD.js - Overlay (zone name, orb count, controls)
+- src/creatures/data.js - Creature database, moves, types, spawn logic
+- src/scenes/BrainrotHub.js - Thin Phaser scene that hides the Phaser canvas
+  and spins up the 3D hub
+- src/brainrot3d/scene.js - Three.js plaza, pedestals, brainrot figures, player
+- src/brainrot3d/ui.js - DOM overlay (coins, buy prompt, levels modal)
+- server/index.js - Express production server
 - dist/ - Built output (git-ignored)
 
 ## Development Commands
-- npm install - Install dependencies (three, vite, express)
 - npm run dev - Vite dev server with hot reload (port 3000)
 - npm run build - Production build to dist/
-- npm run serve - Serve production build via Express
+- npm run serve - Serve production build
 
-## Controls
-- WASD / Arrow keys - Move character
-- Mouse drag - Rotate camera around character
-- Scroll wheel - Zoom camera
-- Touch drag - Rotate camera (mobile)
+## Game Mechanics
+
+### Zones and Difficulty
+- Starter Town (Lv 1-3), Whispering Meadow (Lv 1-5), Darkwood Forest (Lv 3-8)
+- Crystal Lake (Lv 5-12), Rocky Highlands (Lv 8-16)
+
+### Creature Rarity
+- Common (60% spawn), Uncommon (25%), Rare (10%), Legendary (5%)
+
+### Battle System
+- Turn-based, speed determines order
+- Type effectiveness chart (9 types: fire, water, grass, electric, rock, wind, dark, light, ice)
+- Damage formula uses attacker level, ATK, defender DEF, move power, type bonus
+
+### Capture Formula
+- Success = (1 - hpRatio * 0.6) * rarityModifier
+- Rarity mods: common=1.0, uncommon=0.7, rare=0.4, legendary=0.15
 
 ## Hosting
 - LXC 103 on Hikurangi (10.10.0.105)
@@ -41,17 +60,10 @@ A browser-based 3D creature adventure built with Three.js. Currently a minimal f
 - git add specific files
 - git commit -m "feat: description"
 - git push origin main
-- Branch `phaser-2d-archive` preserves the full 2D Phaser version
 
 ## Coding Guidelines
 - Keep it fun and accessible - this is Albie's project
 - Prefer simple, readable code over clever abstractions
-- Each file does one thing (world, player, controls)
-- Build geometry from primitives so no assets to manage yet
-- Test with `npm run dev` before committing
-
-## Next Steps
-- Add creatures wandering the world (Three.js groups, random patrol)
-- Encounter detection (distance check -> battle scene)
-- Rebuild battle system as a separate 3D scene
-- Rebuild inventory / HUD using DOM overlays (simpler than 3D UI)
+- All game data in data.js - easy to add new creatures/moves
+- Procedural textures in Boot.js - no external asset dependencies yet
+- Test changes with npm run dev before committing
