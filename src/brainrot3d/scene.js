@@ -23,13 +23,13 @@ export function createBrainrot3DScene({ onNearPedestal, onLeavePedestal, canvas 
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
 
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x1a0a1a);
-  scene.fog = new THREE.Fog(0x1a0a1a, 30, 80);
+  scene.background = new THREE.Color(0x6b3a78);
+  scene.fog = new THREE.Fog(0x6b3a78, 35, 90);
 
   const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 300);
 
-  // Lighting
-  const key = new THREE.DirectionalLight(0xff7755, 1.6);
+  // Warm sunset key light
+  const key = new THREE.DirectionalLight(0xffc488, 2.0);
   key.position.set(10, 20, 10);
   key.castShadow = true;
   key.shadow.mapSize.set(1024, 1024);
@@ -37,16 +37,18 @@ export function createBrainrot3DScene({ onNearPedestal, onLeavePedestal, canvas 
   key.shadow.camera.top = 25; key.shadow.camera.bottom = -25;
   scene.add(key);
 
-  const rim = new THREE.DirectionalLight(0x5588ff, 0.7);
+  // Pink rim light (not cyan/blue anymore)
+  const rim = new THREE.DirectionalLight(0xff99cc, 0.6);
   rim.position.set(-10, 8, -10);
   scene.add(rim);
 
-  scene.add(new THREE.HemisphereLight(0x442266, 0x110011, 0.5));
+  // Brighter hemisphere fill so shadows aren't pitch black
+  scene.add(new THREE.HemisphereLight(0xffd9b3, 0x4a2a55, 0.9));
 
-  // Plaza floor (dark with a subtle grid)
+  // Plaza floor - warm purple, lighter than before
   const floor = new THREE.Mesh(
     new THREE.CircleGeometry(30, 32),
-    new THREE.MeshLambertMaterial({ color: 0x2a1433 }),
+    new THREE.MeshLambertMaterial({ color: 0x5a3068 }),
   );
   floor.rotation.x = -Math.PI / 2;
   floor.receiveShadow = true;
@@ -63,7 +65,7 @@ export function createBrainrot3DScene({ onNearPedestal, onLeavePedestal, canvas 
   // Pedestals in a ring around the center
   const pedestals = [];
   const pedGeo = new THREE.CylinderGeometry(1.1, 1.3, 1.4, 16);
-  const pedMat = new THREE.MeshLambertMaterial({ color: 0x552233 });
+  const pedMat = new THREE.MeshLambertMaterial({ color: 0x8a4a70 });
   const radius = 11;
   for (let i = 0; i < BRAINROTS.length; i++) {
     const br = BRAINROTS[i];

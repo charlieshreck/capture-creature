@@ -128,6 +128,7 @@ export class LoginScene extends Phaser.Scene {
   }
 
   positionInputs() {
+    if (!this.cameras || !this.cameras.main || !this.usernameInput || !this.passwordInput) return;
     const canvas = this.game.canvas;
     const rect = canvas.getBoundingClientRect();
     const scaleX = rect.width / this.cameras.main.width;
