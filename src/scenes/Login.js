@@ -204,6 +204,11 @@ export class LoginScene extends Phaser.Scene {
       this.registry.set('avatar', data.avatar || { outfit: 0, hat: 0 });
       this.registry.set('brainrotData', data.brainrotData || { coins: 0, owned: [], bestLevels: {} });
 
+      // Persist session so a page refresh stays logged in
+      if (data.token) {
+        try { localStorage.setItem('cc_session', data.token); } catch {}
+      }
+
       // Clean up HTML inputs
       this.usernameInput.remove();
       this.passwordInput.remove();

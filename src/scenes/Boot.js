@@ -1959,6 +1959,38 @@ export class BootScene extends Phaser.Scene {
   }
 
   create() {
+    this.tryResumeSession();
+  }
+
+  async tryResumeSession() {
+    let token = null;
+    try { token = localStorage.getItem('cc_session'); } catch {}
+    if (!token) {
+      this.scene.start('Login');
+      return;
+    }
+    try {
+      const resp = await fetch('/api/resume', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token }),
+      });
+      const data = await resp.json();
+      if (data.ok) {
+        this.registry.set('username', data.displayName);
+        this.registry.set('serverGameData', data.gameData);
+        this.registry.set('avatar', data.avatar || { outfit: 0, hat: 0 });
+        this.registry.set('brainrotData', data.brainrotData || { coins: 0, owned: [], bestLevels: {} });
+        if (data.token) {
+          try { localStorage.setItem('cc_session', data.token); } catch {}
+        }
+        this.scene.start('Homepage');
+        return;
+      }
+      try { localStorage.removeItem('cc_session'); } catch {}
+    } catch {
+      // network error - fall through to login
+    }
     this.scene.start('Login');
   }
 }

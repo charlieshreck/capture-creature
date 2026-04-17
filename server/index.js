@@ -26,6 +26,25 @@ function hashPassword(password) {
   return crypto.createHash('sha256').update(password).digest('hex');
 }
 
+// In-memory session tokens. Cleared on server restart; client falls back
+// to the login screen in that case, which is fine for a personal game.
+const sessions = new Map(); // token -> username (lowercase)
+
+function createSession(usernameLower) {
+  const token = crypto.randomBytes(24).toString('hex');
+  sessions.set(token, usernameLower);
+  return token;
+}
+
+function accountPayload(account) {
+  return {
+    displayName: account.displayName,
+    gameData: account.gameData,
+    avatar: account.avatar || { outfit: 0, hat: 0 },
+    brainrotData: account.brainrotData || { coins: 0, owned: [], bestLevels: {} },
+  };
+}
+
 app.use(express.json());
 
 // Serve built files
@@ -53,7 +72,8 @@ app.post('/api/register', (req, res) => {
     return res.json({ ok: false, error: 'Username already taken' });
   }
 
-  accounts[username.toLowerCase()] = {
+  const usernameLower = username.toLowerCase();
+  accounts[usernameLower] = {
     displayName: username,
     password: hashPassword(password),
     gameData: null,
@@ -62,7 +82,8 @@ app.post('/api/register', (req, res) => {
   };
   saveAccounts(accounts);
 
-  res.json({ ok: true, displayName: username, gameData: null, avatar: { outfit: 0, hat: 0 }, brainrotData: { coins: 0, owned: [], bestLevels: {} } });
+  const token = createSession(usernameLower);
+  res.json({ ok: true, token, ...accountPayload(accounts[usernameLower]) });
 });
 
 // Login
@@ -83,7 +104,33 @@ app.post('/api/login', (req, res) => {
     return res.json({ ok: false, error: 'Wrong password' });
   }
 
-  res.json({ ok: true, displayName: account.displayName, gameData: account.gameData, avatar: account.avatar || { outfit: 0, hat: 0 }, brainrotData: account.brainrotData || { coins: 0, owned: [], bestLevels: {} } });
+  const token = createSession(username.toLowerCase());
+  res.json({ ok: true, token, ...accountPayload(account) });
+});
+
+// Resume a session using a saved token (for stay-logged-in across refreshes)
+app.post('/api/resume', (req, res) => {
+  const { token } = req.body || {};
+  if (!token) return res.json({ ok: false, error: 'No token' });
+
+  const usernameLower = sessions.get(token);
+  if (!usernameLower) return res.json({ ok: false, error: 'Session expired' });
+
+  const accounts = loadAccounts();
+  const account = accounts[usernameLower];
+  if (!account) {
+    sessions.delete(token);
+    return res.json({ ok: false, error: 'Account not found' });
+  }
+
+  res.json({ ok: true, token, ...accountPayload(account) });
+});
+
+// Invalidate a session (called on explicit logout)
+app.post('/api/logout', (req, res) => {
+  const { token } = req.body || {};
+  if (token) sessions.delete(token);
+  res.json({ ok: true });
 });
 
 // Save game data

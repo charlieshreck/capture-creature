@@ -41,6 +41,22 @@ export class BrainrotHubScene extends Phaser.Scene {
       onNearPedestal: (br) => this.ui.setNearPedestal(br),
       onLeavePedestal: () => this.ui.clearNearPedestal(),
     });
+
+    // Phaser fires SHUTDOWN when the scene is replaced (including via
+    // browser back). Clean up here so we don't leak the 3D canvas.
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.teardown());
+  }
+
+  teardown() {
+    if (this.three) { this.three.dispose(); this.three = null; }
+    if (this.ui) { this.ui.destroy(); this.ui = null; }
+    if (this._threeCanvas && this._threeCanvas.parentNode) {
+      this._threeCanvas.remove();
+      this._threeCanvas = null;
+    }
+    if (this.game && this.game.canvas) {
+      this.game.canvas.style.display = this._prevDisplay || '';
+    }
   }
 
   buyBrainrot(br) {
@@ -62,10 +78,7 @@ export class BrainrotHubScene extends Phaser.Scene {
   }
 
   exitTo(sceneKey, data) {
-    if (this.three) this.three.dispose();
-    if (this.ui) this.ui.destroy();
-    if (this._threeCanvas && this._threeCanvas.parentNode) this._threeCanvas.remove();
-    this.game.canvas.style.display = this._prevDisplay || '';
+    this.teardown();
     this.scene.start(sceneKey, data);
   }
 }

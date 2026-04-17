@@ -104,6 +104,15 @@ export class HomepageScene extends Phaser.Scene {
     logoutBtn.on('pointerover', () => logoutBtn.setStrokeStyle(1, 0xff4444));
     logoutBtn.on('pointerout', () => logoutBtn.setStrokeStyle(1, 0x444444));
     logoutBtn.on('pointerdown', () => {
+      let token = null;
+      try { token = localStorage.getItem('cc_session'); localStorage.removeItem('cc_session'); } catch {}
+      if (token) {
+        fetch('/api/logout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token }),
+        }).catch(() => {});
+      }
       this.registry.set('username', null);
       this.registry.set('serverGameData', null);
       this.scene.start('Login');
