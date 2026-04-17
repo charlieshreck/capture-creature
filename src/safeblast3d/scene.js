@@ -79,6 +79,30 @@ export function createSafeBlastScene({
     }
   }
 
+  // Coin drops from resource generators. Each generator has its own timer;
+  // periodically it spawns a floating coin above itself that the player can
+  // walk through to collect. Colour and value depend on generator type.
+  const COIN_META = {
+    bronze: { color: 0xc48b55, value: 1, interval: 3.2 },
+    silver: { color: 0xdddddd, value: 5, interval: 7 },
+    gold:   { color: 0xffd700, value: 10, interval: 10 },
+  };
+  const generators = mapData.generators.map((g) => ({ ...g, timer: (COIN_META[g.type] || COIN_META.bronze).interval * Math.random() }));
+  const coins = [];
+  const coinGeo = new THREE.CylinderGeometry(0.25, 0.25, 0.08, 16);
+
+  function spawnCoin(gen) {
+    const meta = COIN_META[gen.type] || COIN_META.bronze;
+    const mat = new THREE.MeshLambertMaterial({ color: meta.color, emissive: meta.color, emissiveIntensity: 0.35 });
+    const mesh = new THREE.Mesh(coinGeo, mat);
+    const wp = tileToWorld(mapData, gen.x + 0.5, gen.y + 0.5);
+    mesh.position.set(wp.x, 1.0, wp.z);
+    mesh.rotation.x = Math.PI / 2;
+    mesh.castShadow = true;
+    scene.add(mesh);
+    coins.push({ mesh, cartX: gen.x + 0.5, cartY: gen.y + 0.5, value: meta.value, born: performance.now(), bob: Math.random() * Math.PI * 2 });
+  }
+
   const worldShim = {
     mapData,
     canMoveTo: (nx, ny) => tileWalkable(mapData, nx, ny),
@@ -148,14 +172,15 @@ export function createSafeBlastScene({
     if (gameOverSent) return;
     gameOverSent = true;
     if (won) {
-      const reward = level * 10;
-      playerState.coins += reward;
+      const winBonus = level * 10;
+      playerState.coins += winBonus;
       ui.setCoins(playerState.coins);
-      ui.showResult({ won: true, coins: reward, level });
-      onWin && onWin({ level, coins: reward });
+      ui.showResult({ won: true, coins: playerState.coins, level });
+      onWin && onWin({ level, coins: playerState.coins });
     } else {
-      ui.showResult({ won: false, coins: 0, level });
-      onLose && onLose({ level });
+      // Still keep whatever generator coins were collected before dying
+      ui.showResult({ won: false, coins: playerState.coins, level });
+      onLose && onLose({ level, coins: playerState.coins });
     }
   }
 
@@ -306,6 +331,27 @@ export function createSafeBlastScene({
       // Update bots
       for (const b of bots) b.update(dt, { mapData, worldShim, bots, player: playerState, damageSafe, damageBlock });
       for (const b of bots) b.syncMesh(mapData);
+
+      // Generator coin drops
+      for (const gen of generators) {
+        const meta = COIN_META[gen.type] || COIN_META.bronze;
+        gen.timer -= dt;
+        if (gen.timer <= 0) { gen.timer = meta.interval; spawnCoin(gen); }
+      }
+      // Coin float + pickup
+      for (let i = coins.length - 1; i >= 0; i--) {
+        const c = coins[i];
+        c.mesh.position.y = 1.0 + Math.sin(performance.now() * 0.004 + c.bob) * 0.12;
+        c.mesh.rotation.z += dt * 3;
+        const d = Math.hypot(c.cartX - playerState.cartX, c.cartY - playerState.cartY);
+        if (d < 0.75) {
+          playerState.coins += c.value;
+          ui.setCoins(playerState.coins);
+          scene.remove(c.mesh);
+          c.mesh.geometry && c.mesh.material && c.mesh.material.dispose();
+          coins.splice(i, 1);
+        }
+      }
     }
 
     // Camera follows player

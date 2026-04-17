@@ -6,6 +6,15 @@ export class HomepageScene extends Phaser.Scene {
   }
 
   create() {
+    // Pro hub is a DOM overlay. Check the saved theme preference; if Pro,
+    // mount the DOM hub and skip all the Phaser setup.
+    let theme = 'classic';
+    try { theme = localStorage.getItem('cc_hub_theme') || 'classic'; } catch {}
+    if (theme === 'pro') {
+      this.mountProHub();
+      return;
+    }
+
     const w = this.cameras.main.width;
     const h = this.cameras.main.height;
     const username = this.registry.get('username') || 'Player';
@@ -304,6 +313,64 @@ export class HomepageScene extends Phaser.Scene {
     this.add.text(w / 2, h - 15, 'Made by Albie', {
       fontSize: '10px', color: '#444444',
     }).setOrigin(0.5);
+
+    // Theme toggle: switch to the Pro DOM hub
+    const toggleBtn = this.add.text(10, h - 18, 'TRY PRO VIEW', {
+      fontSize: '9px', color: '#ffab40', fontStyle: 'bold',
+      backgroundColor: '#1a1a2e', padding: { x: 6, y: 3 },
+    }).setInteractive({ useHandCursor: true });
+    toggleBtn.on('pointerdown', () => {
+      try { localStorage.setItem('cc_hub_theme', 'pro'); } catch {}
+      this.scene.restart();
+    });
+  }
+
+  async mountProHub() {
+    const phaserCanvas = this.game.canvas;
+    this._prevDisplay = phaserCanvas.style.display;
+    phaserCanvas.style.display = 'none';
+
+    const username = this.registry.get('username') || 'Player';
+
+    const { createProHomepage } = await import('../homepage_pro/ui.js');
+    if (this._torn) return;
+
+    this.pro = createProHomepage({
+      username,
+      onPickGame: (sceneKey) => this.scene.start(sceneKey),
+      onAvatar: () => this.scene.start('Avatar'),
+      onAvatar3D: () => this.scene.start('Avatar3D'),
+      onLogout: () => this.doLogout(),
+      onClassic: () => {
+        try { localStorage.setItem('cc_hub_theme', 'classic'); } catch {}
+        this.scene.restart();
+      },
+    });
+
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.unmountProHub());
+  }
+
+  unmountProHub() {
+    this._torn = true;
+    if (this.pro) { this.pro.destroy(); this.pro = null; }
+    if (this.game && this.game.canvas) {
+      this.game.canvas.style.display = this._prevDisplay || '';
+    }
+  }
+
+  doLogout() {
+    let token = null;
+    try { token = localStorage.getItem('cc_session'); localStorage.removeItem('cc_session'); } catch {}
+    if (token) {
+      fetch('/api/logout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token }),
+      }).catch(() => {});
+    }
+    this.registry.set('username', null);
+    this.registry.set('serverGameData', null);
+    this.scene.start('Login');
   }
 
   createGameCard(x, y, opts, onClick, container) {

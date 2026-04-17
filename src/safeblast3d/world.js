@@ -45,6 +45,55 @@ export function buildWorld(mapData) {
   const group = new THREE.Group();
   const blockMeshes = {};
 
+  // Wide decorative ocean extending past the arena so the world feels big.
+  // Shares a single geometry/material to keep draw calls down.
+  const oceanSize = 240;
+  const ocean = new THREE.Mesh(
+    new THREE.PlaneGeometry(oceanSize, oceanSize),
+    new THREE.MeshLambertMaterial({ color: 0x2e67b8 }),
+  );
+  ocean.rotation.x = -Math.PI / 2;
+  ocean.position.y = -0.6;
+  ocean.receiveShadow = true;
+  group.add(ocean);
+
+  // Scattered distant islands - pure decoration, no collision.
+  const distantMat = new THREE.MeshLambertMaterial({ color: 0x4a8a2a });
+  const distantRockMat = new THREE.MeshLambertMaterial({ color: 0x7d7569 });
+  const treeTrunk = new THREE.MeshLambertMaterial({ color: 0x6b4a22 });
+  const treeLeaves = new THREE.MeshLambertMaterial({ color: 0x2e7d3a });
+  const trunkGeo = new THREE.CylinderGeometry(0.25, 0.35, 1.6, 6);
+  const leavesGeo = new THREE.ConeGeometry(1.1, 2.4, 6);
+
+  const radiusOut = Math.max(mapData.width, mapData.height) * 0.6 + 14;
+  const islandCount = 10;
+  for (let i = 0; i < islandCount; i++) {
+    const a = (i / islandCount) * Math.PI * 2 + Math.random() * 0.25;
+    const r = radiusOut + Math.random() * 14;
+    const ix = Math.cos(a) * r;
+    const iz = Math.sin(a) * r;
+
+    const island = new THREE.Group();
+    const base = new THREE.Mesh(
+      new THREE.CylinderGeometry(3 + Math.random() * 2.5, 4 + Math.random() * 2.5, 1.2, 8),
+      i % 3 === 0 ? distantRockMat : distantMat,
+    );
+    base.position.y = 0.2;
+    island.add(base);
+    // A couple of chunky trees
+    const trees = 2 + Math.floor(Math.random() * 3);
+    for (let t = 0; t < trees; t++) {
+      const tg = new THREE.Group();
+      const trunk = new THREE.Mesh(trunkGeo, treeTrunk); trunk.position.y = 1.6;
+      const leaves = new THREE.Mesh(leavesGeo, treeLeaves); leaves.position.y = 3.4;
+      tg.add(trunk); tg.add(leaves);
+      tg.position.set((Math.random() - 0.5) * 3, 0, (Math.random() - 0.5) * 3);
+      island.add(tg);
+    }
+    island.position.set(ix, 0, iz);
+    group.add(island);
+  }
+
   // Ground: one mesh per tile (simple and fast for maps up to 25x25)
   const tileGeo = new THREE.BoxGeometry(1, 0.3, 1);
   for (let y = 0; y < mapData.height; y++) {
