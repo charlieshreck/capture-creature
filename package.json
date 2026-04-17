@@ -1,7 +1,7 @@
 {
   "name": "capture-creature",
-  "version": "0.1.0",
-  "description": "Creature capture browser game",
+  "version": "0.2.0",
+  "description": "3D creature adventure (Three.js)",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -12,7 +12,7 @@
     "express": "^4.21.0"
   },
   "devDependencies": {
-    "phaser": "^3.87.0",
+    "three": "^0.171.0",
     "vite": "^6.0.0"
   }
 }

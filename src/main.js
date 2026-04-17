@@ -1,36 +1,43 @@
-import Phaser from 'phaser';
-import { BootScene } from './scenes/Boot.js';
-import { WorldScene } from './scenes/World.js';
-import { BattleScene } from './scenes/Battle.js';
-import { InventoryScene } from './scenes/Inventory.js';
-import { HUDScene } from './scenes/HUD.js';
-import { AdminPanelScene } from './scenes/AdminPanel.js';
-import { HomepageScene } from './scenes/Homepage.js';
-import { LoginScene } from './scenes/Login.js';
-import { AvatarScene } from './scenes/Avatar.js';
-import { Avatar3DScene } from './scenes/Avatar3D.js';
-import { BrainrotHubScene } from './scenes/BrainrotHub.js';
-import { SafeBlastScene } from './scenes/SafeBlast.js';
-import { CreateMovieScene } from './scenes/CreateMovie.js';
+import * as THREE from 'three';
+import { buildWorld } from './world.js';
+import { buildPlayer } from './player.js';
+import { setupControls } from './controls.js';
 
-const config = {
-  type: Phaser.AUTO,
-  width: 800,
-  height: 600,
-  parent: document.body,
-  pixelArt: true,
-  physics: {
-    default: 'arcade',
-    arcade: {
-      gravity: { y: 0 },
-      debug: false,
-    },
-  },
-  scene: [BootScene, HomepageScene, LoginScene, AvatarScene, Avatar3DScene, WorldScene, BattleScene, InventoryScene, HUDScene, AdminPanelScene, BrainrotHubScene, SafeBlastScene, CreateMovieScene],
-  scale: {
-    mode: Phaser.Scale.FIT,
-    autoCenter: Phaser.Scale.CENTER_BOTH,
-  },
-};
+const canvas = document.getElementById('game');
 
-new Phaser.Game(config);
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x87ceeb);
+scene.fog = new THREE.Fog(0x87ceeb, 40, 120);
+
+const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 500);
+
+buildWorld(scene);
+const player = buildPlayer(scene);
+const controls = setupControls(canvas, camera, player);
+
+function resize() {
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+window.addEventListener('resize', resize);
+resize();
+
+const clock = new THREE.Clock();
+function tick() {
+  const dt = Math.min(clock.getDelta(), 0.05);
+  controls.update(dt);
+  player.update(dt);
+  renderer.render(scene, camera);
+  requestAnimationFrame(tick);
+}
+tick();
