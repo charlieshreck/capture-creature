@@ -18,6 +18,19 @@
   </style>
 </head>
 <body>
+  <div id="error-display" style="color:red;font-size:16px;padding:20px;display:none;position:fixed;top:0;left:0;z-index:9999;background:#222;max-width:100%;word-wrap:break-word;"></div>
+  <script>
+    window.onerror = function(msg, src, line, col, err) {
+      var el = document.getElementById('error-display');
+      el.style.display = 'block';
+      el.textContent = 'ERROR: ' + msg + ' at ' + src + ':' + line + ':' + col;
+    };
+    window.addEventListener('unhandledrejection', function(e) {
+      var el = document.getElementById('error-display');
+      el.style.display = 'block';
+      el.textContent = 'PROMISE ERROR: ' + (e.reason ? e.reason.message || e.reason : 'unknown');
+    });
+  </script>
   <script type="module" src="/src/main.js"></script>
 </body>
 </html>
