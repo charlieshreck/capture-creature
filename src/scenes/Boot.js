@@ -1652,6 +1652,64 @@ export class BootScene extends Phaser.Scene {
     g74.fillStyle(0xffab00); g74.fillRect(7, 0, 2, 2); // crown glow
     g74.generateTexture('creature_74', 16, 16); g74.destroy();
 
+    // 75 - Seth: shadow beast — midnight body, purple aura, glowing cyan eyes, twin curved horns
+    const g75 = this.make.graphics({ add: false });
+    // Shadow aura
+    g75.fillStyle(0x2a1a4a); g75.fillCircle(8, 9, 7);
+    // Body — deep midnight
+    g75.fillStyle(0x1a1a3a); g75.fillRect(4, 5, 8, 9);
+    g75.fillStyle(0x0a0a1a); g75.fillRect(4, 13, 8, 1); // shadow underline
+    // Curved horns (back-swept)
+    g75.fillStyle(0x4a3a6a);
+    g75.fillRect(3, 3, 1, 2); g75.fillRect(12, 3, 1, 2); // horn base
+    g75.fillRect(2, 1, 1, 2); g75.fillRect(13, 1, 1, 2); // horn mid
+    g75.fillStyle(0x9a7ab0); g75.fillRect(1, 0, 1, 1); g75.fillRect(14, 0, 1, 1); // horn tips
+    // Glowing cyan eyes
+    g75.fillStyle(0x00e5ff); g75.fillRect(6, 7, 1, 1); g75.fillRect(9, 7, 1, 1);
+    g75.fillStyle(0xb2ebf2); g75.fillRect(6, 7, 1, 1); g75.fillRect(9, 7, 1, 1); // glow tip
+    // Mouth — fanged snarl
+    g75.fillStyle(0x000000); g75.fillRect(6, 10, 4, 1);
+    g75.fillStyle(0xffffff); g75.fillRect(7, 10, 1, 1); g75.fillRect(8, 10, 1, 1);
+    // Claws
+    g75.fillStyle(0x9a7ab0); g75.fillRect(3, 14, 1, 2); g75.fillRect(12, 14, 1, 2);
+    g75.fillRect(5, 14, 1, 2); g75.fillRect(10, 14, 1, 2);
+    // Drifting shadow particles
+    g75.fillStyle(0x6a4a8a);
+    g75.fillRect(0, 6, 1, 1); g75.fillRect(15, 6, 1, 1);
+    g75.fillRect(0, 11, 1, 1); g75.fillRect(15, 11, 1, 1);
+    g75.generateTexture('creature_75', 16, 16); g75.destroy();
+
+    // 76 - Santino: volcanic beast — orange-red body, magma cracks, flame mane, glowing yellow eyes
+    const g76 = this.make.graphics({ add: false });
+    // Heat haze aura
+    g76.fillStyle(0x5d1f0a); g76.fillCircle(8, 9, 7);
+    // Body — burning orange
+    g76.fillStyle(0xff5722); g76.fillRect(4, 5, 8, 9);
+    // Magma cracks (yellow glow lines on body)
+    g76.fillStyle(0xffd54f);
+    g76.fillRect(5, 8, 1, 1); g76.fillRect(7, 9, 2, 1); g76.fillRect(10, 8, 1, 1);
+    g76.fillRect(6, 11, 4, 1);
+    // Flame mane on top of head (jagged)
+    g76.fillStyle(0xff9100);
+    g76.fillRect(3, 4, 1, 1); g76.fillRect(5, 3, 1, 1); g76.fillRect(7, 2, 2, 1);
+    g76.fillRect(10, 3, 1, 1); g76.fillRect(12, 4, 1, 1);
+    g76.fillStyle(0xffd54f);
+    g76.fillRect(4, 3, 1, 1); g76.fillRect(6, 2, 1, 1); g76.fillRect(9, 2, 1, 1); g76.fillRect(11, 3, 1, 1);
+    // Glowing yellow eyes
+    g76.fillStyle(0xffeb3b); g76.fillRect(6, 7, 1, 1); g76.fillRect(9, 7, 1, 1);
+    // Mouth — glowing fanged
+    g76.fillStyle(0xffd54f); g76.fillRect(6, 10, 4, 1);
+    g76.fillStyle(0xffffff); g76.fillRect(7, 10, 1, 1); g76.fillRect(8, 10, 1, 1);
+    // Claws
+    g76.fillStyle(0xff7043);
+    g76.fillRect(3, 14, 1, 2); g76.fillRect(5, 14, 1, 2);
+    g76.fillRect(10, 14, 1, 2); g76.fillRect(12, 14, 1, 2);
+    // Floating embers
+    g76.fillStyle(0xffaa33);
+    g76.fillRect(1, 5, 1, 1); g76.fillRect(14, 5, 1, 1);
+    g76.fillRect(0, 12, 1, 1); g76.fillRect(15, 12, 1, 1);
+    g76.generateTexture('creature_76', 16, 16); g76.destroy();
+
     // === SAFE BLAST TEXTURES ===
 
     // Bridge (160x16)
@@ -1980,9 +2038,60 @@ export class BootScene extends Phaser.Scene {
         this.registry.set('username', data.displayName);
         this.registry.set('serverGameData', data.gameData);
         this.registry.set('avatar', data.avatar || { outfit: 0, hat: 0 });
-        this.registry.set('brainrotData', data.brainrotData || { coins: 0, owned: [], bestLevels: {} });
+
+        // Merge server + localStorage so an in-flight save that never
+        // reached the server isn't lost to a refresh. localStorage is the
+        // authoritative source for values that can DECREASE (coins) since
+        // it's written synchronously on every client change; server wins
+        // only when localStorage is missing (fresh login / other device).
+        const serverBr = data.brainrotData || { coins: 0, owned: [], bestLevels: {} };
+        let finalBr = serverBr;
+        try {
+          const key = 'cc_brdata_' + (data.displayName || '_').toLowerCase();
+          const raw = localStorage.getItem(key);
+          if (raw) {
+            const cached = JSON.parse(raw);
+            if (cached && cached.data) {
+              const c = cached.data;
+              // If server has MORE coins than we last saw it with, treat the
+              // difference as an operator bump and add it to our local total.
+              // If server has the same / less, trust localStorage (normal
+              // spending).
+              const lastSeenServer = typeof cached.lastServerCoins === 'number'
+                ? cached.lastServerCoins
+                : (typeof c.coins === 'number' ? c.coins : 0);
+              const serverCoins = serverBr.coins || 0;
+              const bump = Math.max(0, serverCoins - lastSeenServer);
+              const localCoins = typeof c.coins === 'number' ? c.coins : 0;
+              finalBr = {
+                coins: localCoins + bump,
+                owned: unionIds(serverBr.owned, c.owned),
+                bestLevels: Object.assign({}, serverBr.bestLevels || {}, c.bestLevels || {}),
+                abilities: mergeAbilities(serverBr.abilities, c.abilities),
+                // For per-ability upgrade levels take the max of server and
+                // localStorage so upgrades never appear to roll back.
+                abilityLevels: mergeLevelMaps(serverBr.abilityLevels, c.abilityLevels),
+                soldierLevel: Math.max(serverBr.soldierLevel || 0, c.soldierLevel || 0) || 1,
+                healthLevel: Math.max(serverBr.healthLevel || 0, c.healthLevel || 0),
+              };
+            }
+          }
+        } catch {}
+        this.registry.set('brainrotData', finalBr);
+
+        // If localStorage was ahead, push it back to the server so everything
+        // is in sync going forward.
         if (data.token) {
           try { localStorage.setItem('cc_session', data.token); } catch {}
+        }
+
+        if (finalBr !== serverBr) {
+          fetch('/api/save-brainrot', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: data.token, brainrotData: finalBr }),
+            keepalive: true,
+          }).catch(() => {});
         }
         this.scene.start('Homepage');
         return;
@@ -1993,4 +2102,35 @@ export class BootScene extends Phaser.Scene {
     }
     this.scene.start('Login');
   }
+}
+
+function unionIds(a, b) {
+  const s = new Set();
+  if (Array.isArray(a)) for (const x of a) s.add(x);
+  if (Array.isArray(b)) for (const x of b) s.add(x);
+  return Array.from(s);
+}
+
+function mergeLevelMaps(a, b) {
+  const out = {};
+  if (a && typeof a === 'object') for (const k of Object.keys(a)) out[k] = a[k];
+  if (b && typeof b === 'object') {
+    for (const k of Object.keys(b)) {
+      out[k] = Math.max(out[k] || 0, b[k] || 0);
+    }
+  }
+  return out;
+}
+
+function mergeAbilities(a, b) {
+  const ownedA = (a && a.owned) || [];
+  const ownedB = (b && b.owned) || [];
+  const equippedA = (a && a.equipped) || [];
+  const equippedB = (b && b.equipped) || [];
+  return {
+    owned: unionIds(ownedA, ownedB),
+    // Equipped is a user choice - prefer whichever list is longer (more
+    // recent edits), trimmed to 8.
+    equipped: (equippedB.length >= equippedA.length ? equippedB : equippedA).slice(0, 8),
+  };
 }

@@ -191,14 +191,15 @@ export class Avatar3DScene extends Phaser.Scene {
   }
 
   async saveAvatar() {
-    const username = this.registry.get('username');
     const avatar = { outfit: this.selectedOutfit, hat: this.selectedHat };
+    let token = null;
+    try { token = localStorage.getItem('cc_session'); } catch {}
 
     try {
       const resp = await fetch('/api/save-avatar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, avatar }),
+        body: JSON.stringify({ token, avatar }),
       });
       const data = await resp.json();
       if (data.ok) {

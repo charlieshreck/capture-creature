@@ -210,20 +210,36 @@ export class HomepageScene extends Phaser.Scene {
         onClick: () => this.scene.start('World'),
       },
       {
-        title: 'CREATE A MOVIE',
-        description: 'Pick a genre, star, and plot — make your own film!',
+        title: 'WIZARDS',
+        description: 'Explore a 3D world and find hidden spell cards!',
         color: 0x311b92,
-        borderColor: 0xffd600,
+        borderColor: 0xb388ff,
         icon: null,
-        onClick: () => this.scene.start('CreateMovie'),
+        onClick: () => this.scene.start('Wizards'),
       },
       {
-        title: 'WIN A BRAINROT',
-        description: 'Play mini-games, earn coins, collect brainrots!',
+        title: 'WIN A CREATURE',
+        description: 'Play mini-games, earn coins, collect creatures!',
         color: 0x4a1a00,
         borderColor: 0xff6644,
         icon: 'brainrot_0',
         onClick: () => this.scene.start('BrainrotHub'),
+      },
+      {
+        title: 'MANAGER CAREER',
+        description: 'Pick a club, buy players, train, win every league!',
+        color: 0x0a3d62,
+        borderColor: 0x48ffaf,
+        icon: null,
+        onClick: () => this.scene.start('Manager'),
+      },
+      {
+        title: 'FC COMPUTER',
+        description: 'Open packs, collect cards, play quick matches!',
+        color: 0x0b1224,
+        borderColor: 0x3ee0c8,
+        icon: null,
+        onClick: () => this.scene.start('FCComputer'),
       },
     ];
 
@@ -326,9 +342,19 @@ export class HomepageScene extends Phaser.Scene {
   }
 
   async mountProHub() {
+    // Phaser reuses scene instances, so any flag from a previous shutdown
+    // is still on `this`. Reset before starting a fresh mount.
+    this._torn = false;
+    this.pro = null;
+
     const phaserCanvas = this.game.canvas;
     this._prevDisplay = phaserCanvas.style.display;
     phaserCanvas.style.display = 'none';
+
+    // Belt and braces: if a previous Pro DOM is still in the document
+    // (e.g. SHUTDOWN didn't fire for some reason), kill it.
+    const stale = document.getElementById('cc-pro-hub');
+    if (stale) stale.remove();
 
     const username = this.registry.get('username') || 'Player';
 

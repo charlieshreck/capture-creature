@@ -18,6 +18,7 @@ export class SafeBlastScene extends Phaser.Scene {
   }
 
   create() {
+    this._resultSaved = false;
     this.brData = this.registry.get('brainrotData') || { coins: 0, owned: [], bestLevels: {} };
     this.username = this.registry.get('username');
 
@@ -54,18 +55,30 @@ export class SafeBlastScene extends Phaser.Scene {
 
       this.ui = createSafeBlastUI({
         levelName: mapName,
+        level: this.level,
         onBack: () => this.exitTo('BrainrotHub'),
         onAttack: () => this.three && this.three.attack(),
+        onBuySword: (id) => this.three && this.three.buySword(id),
+        onCastAbility: (id) => this.three && this.three.castAbility(id),
+        onReleaseHoney: () => this.three && this.three.releaseHoneyTraps && this.three.releaseHoneyTraps(),
         onLevelEnd: (mode, payload) => {
           if (mode === 'retry') this.exitTo('SafeBlast', { level: this.level });
           else this.exitTo('BrainrotHub');
         },
       });
 
+      const equipped = (this.brData.abilities && Array.isArray(this.brData.abilities.equipped))
+        ? this.brData.abilities.equipped
+        : [];
       this.three = createSafeBlastScene({
         canvas: this._threeCanvas,
         level: this.level,
         username: this.username,
+        avatar: this.registry.get('avatar') || { outfit: 0, hat: 0 },
+        equippedAbilities: equipped,
+        soldierLevel: (this.brData.abilityLevels && this.brData.abilityLevels.soldier) || this.brData.soldierLevel || 1,
+        abilityLevels: this.brData.abilityLevels || {},
+        healthLevel: this.brData.healthLevel || 0,
         ui: this.ui,
         onWin: ({ level, coins }) => this.handleWin(level, coins),
         onLose: ({ level, coins }) => this.handleLose(level, coins),
@@ -76,14 +89,20 @@ export class SafeBlastScene extends Phaser.Scene {
   }
 
   handleWin(level, coins) {
+    this._resultSaved = true;
     this.brData.coins += coins;
     this.brData.bestLevels = this.brData.bestLevels || {};
-    if (!this.brData.bestLevels[level]) this.brData.bestLevels[level] = true;
+    // Cascade-complete: beating level N marks every level 1..N as beaten
+    // (so jumping straight to a higher level fills in the lower badges).
+    for (let i = 1; i <= level; i++) {
+      if (!this.brData.bestLevels[i]) this.brData.bestLevels[i] = true;
+    }
     this.registry.set('brainrotData', this.brData);
     this.saveBrainrot();
   }
 
   handleLose(level, coins) {
+    this._resultSaved = true;
     // Keep any generator coins picked up before dying
     if (coins > 0) {
       this.brData.coins += coins;
@@ -93,11 +112,31 @@ export class SafeBlastScene extends Phaser.Scene {
   }
 
   saveBrainrot() {
-    fetch('/api/save-brainrot', {
+    // Persist to localStorage synchronously before firing the server save
+    // so a refresh mid-flight can't drop the update. Record lastServerCoins
+    // to detect operator-side coin bumps on next load.
+    const snapshot = JSON.parse(JSON.stringify(this.brData));
+    try {
+      localStorage.setItem('cc_brdata_' + (this.username || '_').toLowerCase(),
+        JSON.stringify({ data: snapshot, ts: Date.now(), lastServerCoins: snapshot.coins }));
+    } catch {}
+
+    let token = null;
+    try { token = localStorage.getItem('cc_session'); } catch {}
+    const payload = { token, brainrotData: snapshot };
+    return fetch('/api/save-brainrot', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: this.username, brainrotData: this.brData }),
-    }).catch(() => {});
+      body: JSON.stringify(payload),
+      keepalive: true,
+    }).then((r) => r.json()).then((d) => {
+      if (this.ui && this.ui.showToast) {
+        this.ui.showToast(d && d.ok ? 'Progress saved' : 'Save failed - try again', 1400);
+      }
+      return d;
+    }).catch(() => {
+      if (this.ui && this.ui.showToast) this.ui.showToast('Save failed - try again', 1400);
+    });
   }
 
   exitTo(sceneKey, data) {
@@ -107,6 +146,16 @@ export class SafeBlastScene extends Phaser.Scene {
 
   teardown() {
     this._cancelled = true;
+    // If the player is backing out mid-level (no win/lose), bank any coins
+    // they picked up from generators. Without this those coins vanish.
+    if (this.three && !this._resultSaved) {
+      const ps = this.three.getState && this.three.getState();
+      if (ps && ps.coins > 0) {
+        this.brData.coins += ps.coins;
+        this.registry.set('brainrotData', this.brData);
+        this.saveBrainrot();
+      }
+    }
     if (this.three) { this.three.dispose(); this.three = null; }
     if (this.ui) { this.ui.destroy(); this.ui = null; }
     if (this._threeCanvas && this._threeCanvas.parentNode) {

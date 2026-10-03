@@ -558,6 +558,20 @@ export const CREATURES = [
     moves: ['Cataclysm', 'Void Rend', 'Earthquake', 'Divine Wrath'],
     description: 'The ultimate beast. Born from chaos itself. Its roar splits the sky.',
   },
+  {
+    id: 75, name: 'Seth', type: 'dark', rarity: 'beast',
+    baseHp: 170, baseAtk: 48, baseDef: 38, baseSpd: 40,
+    color: 0x1a1a3a,
+    moves: ['Void Rend', 'Cataclysm', 'Shadow Bite', 'Divine Wrath'],
+    description: 'A primordial beast cloaked in living shadow. Sealed away for eons - now stirring.',
+  },
+  {
+    id: 76, name: 'Santino', type: 'fire', rarity: 'beast',
+    baseHp: 155, baseAtk: 52, baseDef: 36, baseSpd: 42,
+    color: 0xff5722,
+    moves: ['Solar Flare', 'Cataclysm', 'Ember', 'Divine Wrath'],
+    description: 'A blazing beast forged in volcanic fury. Where it walks, the ground turns to glass.',
+  },
 ];
 
 // Move database

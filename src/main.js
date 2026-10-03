@@ -11,12 +11,12 @@ import { AvatarScene } from './scenes/Avatar.js';
 import { Avatar3DScene } from './scenes/Avatar3D.js';
 import { BrainrotHubScene } from './scenes/BrainrotHub.js';
 import { SafeBlastScene } from './scenes/SafeBlast.js';
-import { CreateMovieScene } from './scenes/CreateMovie.js';
+import { WizardsScene } from './scenes/Wizards.js';
+import { ManagerScene } from './scenes/Manager.js';
+import { FCComputerScene } from './scenes/FCComputer.js';
 
 const config = {
   type: Phaser.AUTO,
-  width: 800,
-  height: 600,
   parent: document.body,
   pixelArt: true,
   physics: {
@@ -26,10 +26,11 @@ const config = {
       debug: false,
     },
   },
-  scene: [BootScene, HomepageScene, LoginScene, AvatarScene, Avatar3DScene, WorldScene, BattleScene, InventoryScene, HUDScene, AdminPanelScene, BrainrotHubScene, SafeBlastScene, CreateMovieScene],
+  scene: [BootScene, HomepageScene, LoginScene, AvatarScene, Avatar3DScene, WorldScene, BattleScene, InventoryScene, HUDScene, AdminPanelScene, BrainrotHubScene, SafeBlastScene, WizardsScene, ManagerScene, FCComputerScene],
   scale: {
-    mode: Phaser.Scale.FIT,
-    autoCenter: Phaser.Scale.CENTER_BOTH,
+    mode: Phaser.Scale.RESIZE,
+    width: window.innerWidth,
+    height: window.innerHeight,
   },
 };
 

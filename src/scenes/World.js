@@ -73,7 +73,7 @@ export class WorldScene extends Phaser.Scene {
       this.toggleMap();
     });
     this.input.keyboard.on('keydown-J', () => {
-      const admins = ['albie'];
+      const admins = ['albie', 'chaz'];
       if (admins.includes(this.username.toLowerCase())) {
         this.scene.launch('AdminPanel');
         this.scene.pause();
@@ -595,12 +595,13 @@ export class WorldScene extends Phaser.Scene {
 
   saveToServer() {
     const playerData = this.registry.get('playerData');
-    const username = this.registry.get('username');
-    if (playerData && username) {
+    let token = null;
+    try { token = localStorage.getItem('cc_session'); } catch {}
+    if (playerData && token) {
       fetch('/api/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, gameData: playerData }),
+        body: JSON.stringify({ token, gameData: playerData }),
       }).catch(() => {});
     }
   }

@@ -7,6 +7,10 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const ACCOUNTS_FILE = path.join(__dirname, 'accounts.json');
 
+// Players who are allowed to use admin endpoints (give-creature, give-creature-all).
+// Stored lowercase. Only the server enforces this — never trust the client.
+const ADMINS = new Set(['albie', 'chaz']);
+
 // Load accounts from file
 function loadAccounts() {
   try {
@@ -21,9 +25,36 @@ function saveAccounts(accounts) {
   fs.writeFileSync(ACCOUNTS_FILE, JSON.stringify(accounts, null, 2));
 }
 
-// Hash password
-function hashPassword(password) {
+// --- Password hashing -------------------------------------------------------
+// New accounts: account.password = { salt: hex, hash: hex } using scrypt.
+// Legacy accounts: account.password = "<sha256 hex>" — kept working so nobody
+// is locked out, but transparently upgraded to scrypt on next successful login.
+
+const SCRYPT_KEYLEN = 64;
+
+function hashPasswordScrypt(password, saltHex) {
+  const salt = saltHex || crypto.randomBytes(16).toString('hex');
+  const hash = crypto.scryptSync(password, salt, SCRYPT_KEYLEN).toString('hex');
+  return { salt, hash };
+}
+
+function legacyHash(password) {
   return crypto.createHash('sha256').update(password).digest('hex');
+}
+
+function verifyPassword(password, stored) {
+  if (typeof stored === 'string') {
+    // Legacy unsalted SHA-256
+    return stored === legacyHash(password);
+  }
+  if (stored && typeof stored === 'object' && stored.salt && stored.hash) {
+    const candidate = crypto.scryptSync(password, stored.salt, SCRYPT_KEYLEN).toString('hex');
+    // Constant-time compare to avoid timing attacks
+    const a = Buffer.from(candidate, 'hex');
+    const b = Buffer.from(stored.hash, 'hex');
+    return a.length === b.length && crypto.timingSafeEqual(a, b);
+  }
+  return false;
 }
 
 // In-memory session tokens. Cleared on server restart; client falls back
@@ -34,6 +65,30 @@ function createSession(usernameLower) {
   const token = crypto.randomBytes(24).toString('hex');
   sessions.set(token, usernameLower);
   return token;
+}
+
+// Resolve a request's session token to { usernameLower, account, accounts }
+// or send an error response and return null. Use at the top of every
+// endpoint that mutates user data — never trust a username from req.body.
+function requireAuth(req, res) {
+  const token = req.body && req.body.token;
+  if (!token) {
+    res.json({ ok: false, error: 'Not logged in' });
+    return null;
+  }
+  const usernameLower = sessions.get(token);
+  if (!usernameLower) {
+    res.json({ ok: false, error: 'Session expired' });
+    return null;
+  }
+  const accounts = loadAccounts();
+  const account = accounts[usernameLower];
+  if (!account) {
+    sessions.delete(token);
+    res.json({ ok: false, error: 'Account not found' });
+    return null;
+  }
+  return { usernameLower, account, accounts };
 }
 
 function accountPayload(account) {
@@ -75,7 +130,7 @@ app.post('/api/register', (req, res) => {
   const usernameLower = username.toLowerCase();
   accounts[usernameLower] = {
     displayName: username,
-    password: hashPassword(password),
+    password: hashPasswordScrypt(password),
     gameData: null,
     avatar: { outfit: 0, hat: 0 },
     brainrotData: { coins: 0, owned: [], bestLevels: {} },
@@ -95,16 +150,25 @@ app.post('/api/login', (req, res) => {
   }
 
   const accounts = loadAccounts();
-  const account = accounts[username.toLowerCase()];
+  const usernameLower = username.toLowerCase();
+  const account = accounts[usernameLower];
 
   if (!account) {
     return res.json({ ok: false, error: 'Account not found' });
   }
-  if (account.password !== hashPassword(password)) {
+  if (!verifyPassword(password, account.password)) {
     return res.json({ ok: false, error: 'Wrong password' });
   }
 
-  const token = createSession(username.toLowerCase());
+  // Lazy upgrade: if the account is still on the legacy unsalted SHA-256
+  // format, replace it with a scrypt+salt hash now that we have the
+  // plaintext password and have just verified it.
+  if (typeof account.password === 'string') {
+    account.password = hashPasswordScrypt(password);
+    saveAccounts(accounts);
+  }
+
+  const token = createSession(usernameLower);
   res.json({ ok: true, token, ...accountPayload(account) });
 });
 
@@ -133,117 +197,106 @@ app.post('/api/logout', (req, res) => {
   res.json({ ok: true });
 });
 
-// Save game data
+// Save game data — username comes from the session, never the body.
 app.post('/api/save', (req, res) => {
-  const { username, gameData } = req.body;
+  const auth = requireAuth(req, res);
+  if (!auth) return;
 
-  if (!username) {
-    return res.json({ ok: false, error: 'Not logged in' });
-  }
-
-  const accounts = loadAccounts();
-  const account = accounts[username.toLowerCase()];
-
-  if (!account) {
-    return res.json({ ok: false, error: 'Account not found' });
-  }
-
-  account.gameData = gameData;
-  saveAccounts(accounts);
+  auth.account.gameData = req.body.gameData;
+  saveAccounts(auth.accounts);
 
   res.json({ ok: true });
 });
 
-// Give creature to a specific user
-app.post('/api/give-creature', (req, res) => {
-  const { targetUsername, creature } = req.body;
-
-  if (!targetUsername || !creature) {
-    return res.json({ ok: false, error: 'Missing username or creature' });
-  }
-
-  const accounts = loadAccounts();
-  const account = accounts[targetUsername.toLowerCase()];
-
-  if (!account) {
-    return res.json({ ok: false, error: 'Player not found' });
-  }
-
-  if (!account.gameData) {
-    account.gameData = { creatures: [], orbs: 5, gold: 0 };
-  }
-  account.gameData.creatures.push(creature);
-  saveAccounts(accounts);
-
-  res.json({ ok: true, displayName: account.displayName });
-});
-
-// Give creature to all users
-app.post('/api/give-creature-all', (req, res) => {
-  const { creature } = req.body;
-
-  if (!creature) {
-    return res.json({ ok: false, error: 'Missing creature' });
-  }
-
-  const accounts = loadAccounts();
-  let count = 0;
-  for (const key of Object.keys(accounts)) {
-    if (!accounts[key].gameData) {
-      accounts[key].gameData = { creatures: [], orbs: 5, gold: 0 };
-    }
-    accounts[key].gameData.creatures.push({ ...creature });
-    count++;
-  }
-  saveAccounts(accounts);
-
-  res.json({ ok: true, count });
-});
-
 // Save brainrot data
 app.post('/api/save-brainrot', (req, res) => {
-  const { username, brainrotData } = req.body;
+  const auth = requireAuth(req, res);
+  if (!auth) return;
 
-  if (!username || !brainrotData) {
+  if (!req.body.brainrotData) {
     return res.json({ ok: false, error: 'Missing data' });
   }
 
-  const accounts = loadAccounts();
-  const account = accounts[username.toLowerCase()];
-
-  if (!account) {
-    return res.json({ ok: false, error: 'Account not found' });
-  }
-
-  account.brainrotData = brainrotData;
-  saveAccounts(accounts);
+  auth.account.brainrotData = req.body.brainrotData;
+  saveAccounts(auth.accounts);
 
   res.json({ ok: true });
 });
 
 // Save avatar choice
 app.post('/api/save-avatar', (req, res) => {
-  const { username, avatar } = req.body;
+  const auth = requireAuth(req, res);
+  if (!auth) return;
 
-  if (!username || !avatar) {
+  const avatar = req.body.avatar;
+  if (!avatar) {
     return res.json({ ok: false, error: 'Missing data' });
   }
 
-  const accounts = loadAccounts();
-  const account = accounts[username.toLowerCase()];
-
-  if (!account) {
-    return res.json({ ok: false, error: 'Account not found' });
-  }
-
-  account.avatar = { outfit: avatar.outfit || 0, hat: avatar.hat || 0 };
-  saveAccounts(accounts);
+  auth.account.avatar = { outfit: avatar.outfit || 0, hat: avatar.hat || 0 };
+  saveAccounts(auth.accounts);
 
   res.json({ ok: true });
 });
 
-// SPA fallback
-app.get('*', (req, res) => {
+// Give creature to a specific user — admin only.
+app.post('/api/give-creature', (req, res) => {
+  const auth = requireAuth(req, res);
+  if (!auth) return;
+
+  if (!ADMINS.has(auth.usernameLower)) {
+    return res.json({ ok: false, error: 'Not allowed' });
+  }
+
+  const { targetUsername, creature } = req.body;
+  if (!targetUsername || !creature) {
+    return res.json({ ok: false, error: 'Missing username or creature' });
+  }
+
+  const targetAccount = auth.accounts[targetUsername.toLowerCase()];
+  if (!targetAccount) {
+    return res.json({ ok: false, error: 'Player not found' });
+  }
+
+  if (!targetAccount.gameData) {
+    targetAccount.gameData = { creatures: [], orbs: 5, gold: 0 };
+  }
+  targetAccount.gameData.creatures.push(creature);
+  saveAccounts(auth.accounts);
+
+  res.json({ ok: true, displayName: targetAccount.displayName });
+});
+
+// Give creature to all users — admin only.
+app.post('/api/give-creature-all', (req, res) => {
+  const auth = requireAuth(req, res);
+  if (!auth) return;
+
+  if (!ADMINS.has(auth.usernameLower)) {
+    return res.json({ ok: false, error: 'Not allowed' });
+  }
+
+  const { creature } = req.body;
+  if (!creature) {
+    return res.json({ ok: false, error: 'Missing creature' });
+  }
+
+  let count = 0;
+  for (const key of Object.keys(auth.accounts)) {
+    if (!auth.accounts[key].gameData) {
+      auth.accounts[key].gameData = { creatures: [], orbs: 5, gold: 0 };
+    }
+    auth.accounts[key].gameData.creatures.push({ ...creature });
+    count++;
+  }
+  saveAccounts(auth.accounts);
+
+  res.json({ ok: true, count });
+});
+
+// SPA fallback — regex form so it keeps working under Express 5,
+// where bare '*' is no longer accepted by path-to-regexp.
+app.get(/.*/, (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));
 });
 

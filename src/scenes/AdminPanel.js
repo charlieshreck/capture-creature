@@ -345,11 +345,13 @@ export class AdminPanelScene extends Phaser.Scene {
     }
 
     const creature = createCreatureInstance(template, this.getLevel());
+    let token = null;
+    try { token = localStorage.getItem('cc_session'); } catch {}
     try {
       const resp = await fetch('/api/give-creature', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ targetUsername: username, creature }),
+        body: JSON.stringify({ token, targetUsername: username, creature }),
       });
       const data = await resp.json();
       if (data.ok) {
@@ -372,11 +374,13 @@ export class AdminPanelScene extends Phaser.Scene {
 
   async giveToAll(template) {
     const creature = createCreatureInstance(template, this.getLevel());
+    let token = null;
+    try { token = localStorage.getItem('cc_session'); } catch {}
     try {
       const resp = await fetch('/api/give-creature-all', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ creature }),
+        body: JSON.stringify({ token, creature }),
       });
       const data = await resp.json();
       if (data.ok) {

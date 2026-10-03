@@ -5,8 +5,8 @@ import { TILE, BLOCK } from './IsoUtils.js';
 
 // Generate a map for a given level (1-20)
 export function generateMap(level) {
-  // Map size scales with level
-  const size = Math.min(25, 14 + Math.floor(level / 3));
+  // Fixed map size for every level - same arena regardless of level.
+  const size = 35;
   const mid = Math.floor(size / 2);
 
   // Create empty ground and block grids
@@ -17,8 +17,8 @@ export function generateMap(level) {
     blocks.push(new Array(size).fill(BLOCK.NONE));
   }
 
-  // Island radius scales slightly with level
-  const islandR = Math.min(5, 3 + Math.floor(level / 8));
+  // Fixed island radius for every level - same shape every time.
+  const islandR = 10;
 
   // Blue island (bottom-left area)
   const blueCenter = { x: islandR + 1, y: mid };
@@ -55,18 +55,16 @@ export function generateMap(level) {
     fillIsland(ground, midIslandX, mid, 2, TILE.SAND);
   }
 
-  // Place safes
-  const blueSafe = { x: blueCenter.x - 1, y: mid };
-  const redSafe = { x: redCenter.x + 1, y: mid };
+  // Place safes at the BACK of each island (a couple tiles in from the
+  // outer edge), so the player has the whole island to traverse before
+  // reaching the enemy safe.
+  const blueSafe = { x: Math.max(2, blueCenter.x - islandR + 2), y: mid };
+  const redSafe = { x: Math.min(size - 3, redCenter.x + islandR - 2), y: mid };
   blocks[blueSafe.y][blueSafe.x] = BLOCK.SAFE_BLUE;
   blocks[redSafe.y][redSafe.x] = BLOCK.SAFE_RED;
 
-  // Initial defenses around safes (more at higher levels)
-  const defenseDepth = Math.min(3, Math.floor(level / 4));
-  if (defenseDepth > 0) {
-    addDefenses(blocks, ground, blueSafe, defenseDepth, size);
-    addDefenses(blocks, ground, redSafe, defenseDepth, size);
-  }
+  // No auto-defence blocks: the 4x4 safe wall is its own defence and any
+  // adjacent blocks would just clip into it.
 
   // Generators
   const generators = [];
@@ -92,6 +90,18 @@ export function generateMap(level) {
     }
   }
 
+  // Which abilities red enemies can cast: none through level 20, flame only
+  // for 21-25, both flame and water for 26+.
+  let enemyAbilities = [];
+  if (level >= 26) enemyAbilities = ['flame', 'water'];
+  else if (level >= 21) enemyAbilities = ['flame'];
+
+  // Beefier HP past level 30, and a much larger jump past 40 so the Dragon
+  // Bite ability actually matters.
+  let enemyHp = 100;
+  if (level > 40) enemyHp = 400 + (level - 40) * 60;       // 41:460, 50:1000
+  else if (level > 30) enemyHp = 100 + (level - 30) * 30;  // 31:130, 40:400
+
   return {
     level,
     name: MAP_NAMES[level - 1] || `Level ${level}`,
@@ -105,6 +115,8 @@ export function generateMap(level) {
     redSafe,
     generators,
     aiDifficulty: level,
+    enemyAbilities,
+    enemyHp,
   };
 }
 
@@ -175,4 +187,38 @@ const MAP_NAMES = [
   'Final Stand',
   'Kings Court',
   'Ultimate Arena',
+  // 21-25: enemies cast Flame Throw
+  'Ember Front',
+  'Ashwalk',
+  'Pyre Plains',
+  'Scorchfield',
+  'Cinder Gate',
+  // 26-30: enemies cast Flame AND Water
+  'Stormpeak',
+  'Tidal Tower',
+  'Elemental Spire',
+  'Dual Storm',
+  'Champions Arena',
+  // 31-40: same Flame + Water, but enemies have rapidly growing HP
+  'Iron Bastion',
+  'Steelheart',
+  'Granite Spire',
+  'Adamant Reach',
+  'Tempest Hold',
+  'Cataclysm',
+  'Dread Sanctum',
+  'Eternal Forge',
+  'Apex Citadel',
+  'Sovereign',
+  // 41-50: dragon-tier HP - bring the Dragon Bite ability
+  'Wyrm Pit',
+  'Scalebound',
+  'Dragonmaw',
+  'Emberthrone',
+  'Verdant Wyrm',
+  'Ancient Keep',
+  'Drake Reach',
+  'Skyclaw',
+  'Wyrmlord',
+  'Dragon Apex',
 ];

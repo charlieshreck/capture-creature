@@ -9,7 +9,7 @@ export class HUDScene extends Phaser.Scene {
     const w = this.cameras.main.width;
     const h = this.cameras.main.height;
     const username = this.registry.get('username') || 'guest';
-    const admins = ['albie'];
+    const admins = ['albie', 'chaz'];
     const isAdmin = admins.includes(username.toLowerCase());
 
     // Zone name display

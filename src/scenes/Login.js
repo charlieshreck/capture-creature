@@ -202,11 +202,62 @@ export class LoginScene extends Phaser.Scene {
       this.registry.set('username', data.displayName);
       this.registry.set('serverGameData', data.gameData);
       this.registry.set('avatar', data.avatar || { outfit: 0, hat: 0 });
-      this.registry.set('brainrotData', data.brainrotData || { coins: 0, owned: [], bestLevels: {} });
+
+      // Merge server with localStorage (in case an earlier save on this
+      // device didn't make it to the server).
+      const serverBr = data.brainrotData || { coins: 0, owned: [], bestLevels: {} };
+      let finalBr = serverBr;
+      try {
+        const key = 'cc_brdata_' + (data.displayName || '_').toLowerCase();
+        const raw = localStorage.getItem(key);
+        if (raw) {
+          const cached = JSON.parse(raw);
+          if (cached && cached.data) {
+            const c = cached.data;
+            const union = (a, b) => { const s = new Set(); if (Array.isArray(a)) for (const x of a) s.add(x); if (Array.isArray(b)) for (const x of b) s.add(x); return Array.from(s); };
+            const lastSeenServer = typeof cached.lastServerCoins === 'number'
+              ? cached.lastServerCoins
+              : (typeof c.coins === 'number' ? c.coins : 0);
+            const serverCoins = serverBr.coins || 0;
+            const bump = Math.max(0, serverCoins - lastSeenServer);
+            const localCoins = typeof c.coins === 'number' ? c.coins : 0;
+            const mergeLvls = (a, b) => {
+              const out = {};
+              if (a) for (const k of Object.keys(a)) out[k] = a[k];
+              if (b) for (const k of Object.keys(b)) out[k] = Math.max(out[k] || 0, b[k] || 0);
+              return out;
+            };
+            finalBr = {
+              coins: localCoins + bump,
+              owned: union(serverBr.owned, c.owned),
+              bestLevels: Object.assign({}, serverBr.bestLevels || {}, c.bestLevels || {}),
+              abilities: {
+                owned: union(serverBr.abilities && serverBr.abilities.owned, c.abilities && c.abilities.owned),
+                equipped: (c.abilities && c.abilities.equipped && c.abilities.equipped.length
+                  ? c.abilities.equipped
+                  : (serverBr.abilities && serverBr.abilities.equipped) || []).slice(0, 8),
+              },
+              abilityLevels: mergeLvls(serverBr.abilityLevels, c.abilityLevels),
+              soldierLevel: Math.max(serverBr.soldierLevel || 0, c.soldierLevel || 0) || 1,
+              healthLevel: Math.max(serverBr.healthLevel || 0, c.healthLevel || 0),
+            };
+          }
+        }
+      } catch {}
+      this.registry.set('brainrotData', finalBr);
 
       // Persist session so a page refresh stays logged in
       if (data.token) {
         try { localStorage.setItem('cc_session', data.token); } catch {}
+      }
+
+      if (finalBr !== serverBr) {
+        fetch('/api/save-brainrot', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: data.token, brainrotData: finalBr }),
+          keepalive: true,
+        }).catch(() => {});
       }
 
       // Clean up HTML inputs
