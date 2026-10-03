@@ -14,6 +14,7 @@ import { SafeBlastScene } from './scenes/SafeBlast.js';
 import { WizardsScene } from './scenes/Wizards.js';
 import { ManagerScene } from './scenes/Manager.js';
 import { FCComputerScene } from './scenes/FCComputer.js';
+import { EonsmithScene } from './scenes/Eonsmith.js';
 
 const config = {
   type: Phaser.AUTO,
@@ -26,7 +27,7 @@ const config = {
       debug: false,
     },
   },
-  scene: [BootScene, HomepageScene, LoginScene, AvatarScene, Avatar3DScene, WorldScene, BattleScene, InventoryScene, HUDScene, AdminPanelScene, BrainrotHubScene, SafeBlastScene, WizardsScene, ManagerScene, FCComputerScene],
+  scene: [BootScene, HomepageScene, LoginScene, AvatarScene, Avatar3DScene, WorldScene, BattleScene, InventoryScene, HUDScene, AdminPanelScene, BrainrotHubScene, SafeBlastScene, WizardsScene, ManagerScene, FCComputerScene, EonsmithScene],
   scale: {
     mode: Phaser.Scale.RESIZE,
     width: window.innerWidth,

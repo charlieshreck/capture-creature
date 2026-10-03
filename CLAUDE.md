@@ -25,6 +25,8 @@ A browser-based creature capture game built with Phaser.js. Players explore a pr
   and spins up the 3D hub
 - src/brainrot3d/scene.js - Three.js plaza, pedestals, brainrot figures, player
 - src/brainrot3d/ui.js - DOM overlay (coins, buy prompt, levels modal)
+- eonsmith.html + src/eonsmith/ - Eonsmith 3D settlement builder, opened in an
+  iframe by src/scenes/Eonsmith.js (see src/eonsmith/CLAUDE.md)
 - server/index.js - Express production server
 - dist/ - Built output (git-ignored)
 

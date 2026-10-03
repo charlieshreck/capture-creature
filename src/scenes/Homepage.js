@@ -241,6 +241,14 @@ export class HomepageScene extends Phaser.Scene {
         icon: null,
         onClick: () => this.scene.start('FCComputer'),
       },
+      {
+        title: 'EONSMITH',
+        description: 'Build a settlement from village to robot future!',
+        color: 0x3a2a10,
+        borderColor: 0xffd479,
+        icon: null,
+        onClick: () => this.scene.start('Eonsmith'),
+      },
     ];
 
     const viewTop = 110;

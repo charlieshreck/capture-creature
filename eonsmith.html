@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Eonsmith</title>
+  </head>
+  <body>
+    <!-- Eonsmith runs on its own page, loaded in an iframe by the Eonsmith
+         scene on the Game Hub. Keeping it in an iframe means its CSS and
+         keyboard handlers can't leak into the other games, and closing the
+         iframe shuts it down completely. -->
+    <div id="app"></div>
+    <script type="module" src="/src/eonsmith/main.js"></script>
+  </body>
+</html>
